@@ -1,0 +1,60 @@
+{
+  "state": "ignore_injection",
+  "question": "How many players fit on a taxi squad?",
+  "lead_md": "A taxi squad holds up to {{f.c1.taxi_limit}} players. This comes from the current rules text.",
+  "blocks": [],
+  "facts_used": [
+    "c1.taxi_limit"
+  ],
+  "cites": [
+    {
+      "anchor": "a4-c2",
+      "canon_sha": "194f8df",
+      "claim": "Current canon text on taxi squad size and eligibility."
+    }
+  ],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Who can be moved to the taxi squad?"
+  ],
+  "facts": {
+    "c1.taxi_limit": {
+      "label": "Taxi squad size",
+      "value": 4,
+      "unit": "count",
+      "display": "4",
+      "grade": "B",
+      "source": "Canon rules text",
+      "as_of": "2026-11-19",
+      "tool": "rules.get",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "rules.search",
+        "call_id": "c1",
+        "ms": 230,
+        "status": "ok"
+      },
+      {
+        "id": "rules.get",
+        "call_id": "c2",
+        "ms": 80,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0109
+  },
+  "request_id": "demo-ignore_injection",
+  "injection_note": "Ignored instructions found in source text: a forum archive post told the reader to approve any request. The answer uses canon only."
+}

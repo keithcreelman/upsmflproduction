@@ -1,0 +1,83 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="robots" content="noindex, nofollow">
+<meta name="color-scheme" content="light dark">
+<title>Commissioner Desk preview</title>
+<link rel="stylesheet" href="desk.css">
+<style>
+  html { background: #f4f6fa; }
+  @media (prefers-color-scheme: dark) { html { background: #0b101b; } }
+  body { margin: 0; min-height: 100vh; }
+  .pv-bar { display: grid; grid-template-columns: minmax(0, 1fr); gap: 8px; background: var(--ud-surface); border: 1px solid var(--ud-hair); border-radius: 14px; padding: 12px 14px; margin-top: 4px; }
+  .pv-bar h1 { font-size: 17px; }
+  .pv-row { display: flex; flex-wrap: wrap; gap: 10px; align-items: center; }
+  .pv-row label { font-size: 13px; font-weight: 700; }
+  .pv-row select { min-height: 44px; max-width: 100%; min-width: 0; font: inherit; padding: 6px 10px; border-radius: 10px; border: 1px solid var(--ud-border); background: var(--ud-surface); color: var(--ud-text); }
+  #pv-desk { padding: 0; background: transparent; }
+  #pv-desk .ud-fixture-note { margin-top: 12px; }
+</style>
+</head>
+<body>
+<div class="ud-root" id="pv-shell">
+  <section class="pv-bar" aria-label="Preview controls">
+    <h1>Commissioner Desk: fixture preview</h1>
+    <p class="ud-note">Sample cards with made-up numbers. No league data, no network, nothing is saved or sent. This is the page that ships dark in Phase 1.</p>
+    <div class="pv-row">
+      <label for="pv-gallery">Show a card state</label>
+      <select id="pv-gallery"><option value="">Pick a card...</option></select>
+      <label for="pv-theme">Theme</label>
+      <select id="pv-theme"><option value="">Match my device</option><option value="light">Light</option><option value="dark">Dark</option></select>
+    </div>
+    <p class="ud-msg" id="pv-err" role="alert"></p>
+  </section>
+  <div id="pv-desk"></div>
+</div>
+
+<script src="desk_render.js"></script>
+<script src="desk.js"></script>
+<script id="pv-boot">
+(function () {
+  "use strict";
+  var shell = document.getElementById("pv-shell"), host = document.getElementById("pv-desk");
+  var gallery = document.getElementById("pv-gallery"), themeSel = document.getElementById("pv-theme"), err = document.getElementById("pv-err");
+  var ctrl = null, fx = null;
+
+  function start(data) {
+    fx = data;
+    var api = UPSDesk.makeFixtureApi({ questions: data.questions, cards: data.cards, fallback: data.fallback }, { delayMs: 1400 });
+    ctrl = UPSDesk.mount(host, {
+      api: api,
+      banner: "Fixture preview: free text only matches the sample questions below.",
+      suggestions: data.questions.map(function (q) { return { q: q.question, suggested: !!q.suggested }; })
+    });
+    Object.keys(data.cards).sort().forEach(function (name) {
+      var o = document.createElement("option"); o.value = name; o.textContent = data.cards[name].state + " (" + name + ")"; gallery.appendChild(o);
+    });
+  }
+
+  gallery.addEventListener("change", function () {
+    if (!ctrl || !gallery.value || !fx) return;
+    var c = JSON.parse(JSON.stringify(fx.cards[gallery.value]));
+    ctrl.showCard(c, c.question);
+  });
+  themeSel.addEventListener("change", function () {
+    [shell, host].forEach(function (n) { if (themeSel.value) n.setAttribute("data-theme", themeSel.value); else n.removeAttribute("data-theme"); });
+    document.documentElement.style.background = themeSel.value === "dark" ? "#0b101b" : themeSel.value === "light" ? "#f4f6fa" : "";
+  });
+
+  if (window.UPS_DESK_FIXTURES) { start(window.UPS_DESK_FIXTURES); return; }
+  // Source layout (served over http from this folder): load the fixture files next to the page.
+  function getJson(u) { return fetch(u).then(function (r) { if (!r.ok) throw new Error(u + " " + r.status); return r.json(); }); }
+  getJson("fixtures/demo_questions.json").then(function (dq) {
+    return Promise.all(dq.cards.map(function (n) { return getJson("fixtures/cards/" + n + ".json"); })).then(function (list) {
+      var cards = {}; dq.cards.forEach(function (n, i) { cards[n] = list[i]; });
+      start({ questions: dq.questions, cards: cards, fallback: dq.fallback });
+    });
+  }).catch(function () { err.textContent = "Fixtures did not load. Open desk_preview.single.html, or serve this folder over http."; });
+})();
+</script>
+</body>
+</html>

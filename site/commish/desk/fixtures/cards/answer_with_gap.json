@@ -1,0 +1,137 @@
+{
+  "state": "answer_with_gap",
+  "question": "Trace the 2024 3rd-round pick of franchise 0003.",
+  "lead_md": "The pick changed hands {{f.c1.transfers}} times before the draft. {{f.c1.holder_team}} ({{f.c1.holder_fid}}) holds it now. Which player it became is not on record.",
+  "blocks": [
+    {
+      "type": "timeline",
+      "title": "Ownership chain",
+      "rows": [
+        {
+          "date": "2023-04-25",
+          "from": "Harbor Hawks (0003)",
+          "to": "Copper Kings (0001)",
+          "what": "Packaged with a veteran receiver",
+          "grade": "A",
+          "detail": [
+            "Pick: 2024 round 3 (own)",
+            "Player: a veteran receiver"
+          ]
+        },
+        {
+          "date": "2023-05-28",
+          "from": "Copper Kings (0001)",
+          "to": "Mesa Miners (0009)",
+          "what": "Swapped for a 2024 round 2 pick",
+          "grade": "A"
+        },
+        {
+          "date": "2023-08-04",
+          "from": "Mesa Miners (0009)",
+          "to": "Harbor Hawks (0003)",
+          "what": "Part of a multi-player deal",
+          "grade": "A",
+          "detail": [
+            "Two players and this pick moved together"
+          ]
+        },
+        {
+          "date": "2023-11-15",
+          "from": "Prairie Wolves (0005)",
+          "to": "Harbor Hawks (0003)",
+          "what": "Returned to its original owner",
+          "grade": "A",
+          "kind": "final"
+        },
+        {
+          "date": "Draft day",
+          "what": "Slot and player selected: no stored draft order for 2024",
+          "kind": "gap"
+        }
+      ],
+      "tool_call_ids": [
+        "c1"
+      ],
+      "expand_question": "Expand the deals this pick was packaged into",
+      "expand_label": "Expand the next level of deals"
+    }
+  ],
+  "facts_used": [
+    "c1.transfers",
+    "c1.holder_team",
+    "c1.holder_fid"
+  ],
+  "cites": [],
+  "gaps": [
+    {
+      "what": "Draft slot and the player taken with the 2024 pick",
+      "why": "NO_RECORD",
+      "source_needed": "Stored draft order and results for the 2024 draft"
+    }
+  ],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Who held the pick before each trade?",
+    "Show the full deal behind the August 2023 trade"
+  ],
+  "facts": {
+    "c1.transfers": {
+      "label": "Ownership changes",
+      "value": 4,
+      "unit": "count",
+      "display": "4",
+      "grade": "A",
+      "source": "MFL transactions archive",
+      "as_of": "2026-11-19",
+      "tool": "player.transactions",
+      "call_id": "c1"
+    },
+    "c1.holder_team": {
+      "label": "Current holder",
+      "value": "Harbor Hawks",
+      "unit": "text",
+      "display": "Harbor Hawks",
+      "grade": "A",
+      "source": "MFL transactions archive",
+      "as_of": "2026-11-19",
+      "tool": "player.transactions",
+      "call_id": "c1"
+    },
+    "c1.holder_fid": {
+      "label": "Holder id",
+      "value": "0003",
+      "unit": "id",
+      "display": "0003",
+      "grade": "A",
+      "source": "MFL transactions archive",
+      "as_of": "2026-11-19",
+      "tool": "player.transactions",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "player.transactions",
+        "call_id": "c1",
+        "ms": 1380,
+        "status": "ok"
+      },
+      {
+        "id": "coverage.check",
+        "call_id": "c2",
+        "ms": 120,
+        "status": "no_record"
+      }
+    ],
+    "cost_usd": 0.0163
+  },
+  "request_id": "demo-answer_with_gap"
+}

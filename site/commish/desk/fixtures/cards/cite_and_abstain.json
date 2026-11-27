@@ -1,0 +1,45 @@
+{
+  "state": "cite_and_abstain",
+  "question": "Was the taxi squad limit the same in 2019?",
+  "lead_md": "The current rule text is cited below. Rules are not stored by date, so the desk can't say what applied then.",
+  "blocks": [],
+  "facts_used": [],
+  "cites": [
+    {
+      "anchor": "a4-c2",
+      "canon_sha": "194f8df",
+      "claim": "Current canon text on taxi squad size and eligibility. It is labeled as current, not as the 2019 rule."
+    }
+  ],
+  "gaps": [
+    {
+      "what": "The taxi squad rule as it read in 2019",
+      "why": "unsupported_as_of",
+      "source_needed": "A dated rulebook archive or the 2019 rule thread"
+    }
+  ],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Show the rule changes since 2019"
+  ],
+  "facts": {},
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "rules.search",
+        "call_id": "c1",
+        "ms": 210,
+        "status": "unsupported_as_of"
+      }
+    ],
+    "cost_usd": 0.0071
+  },
+  "request_id": "demo-cite_and_abstain"
+}

@@ -1,0 +1,192 @@
+{
+  "state": "answer",
+  "question": "What is franchise 0008's cap position?",
+  "lead_md": "{{f.c1.team}} ({{f.c1.fid}}) has {{f.c1.cap_room}} of cap room for {{f.c1.season}}. It has used {{f.c1.cap_used}} of {{f.c1.cap_limit}}.",
+  "blocks": [
+    {
+      "type": "table",
+      "title": "Cap math",
+      "columns": [
+        "Line",
+        "Amount"
+      ],
+      "rows": [
+        [
+          "Salary cap",
+          "{{f.c1.cap_limit}}"
+        ],
+        [
+          "Roster salaries",
+          "{{f.c1.salaries}}"
+        ],
+        [
+          "Cap adjustments (penalties)",
+          "{{f.c1.adjustments}}"
+        ],
+        [
+          "Injured reserve relief",
+          "{{f.c1.ir_relief}}"
+        ],
+        [
+          "Cap used",
+          "{{f.c1.cap_used}}"
+        ],
+        [
+          "Cap room",
+          "{{f.c1.cap_room}}"
+        ],
+        [
+          "Sign convention",
+          "Penalties count against the cap. IR relief counts for it."
+        ]
+      ],
+      "tool_call_ids": [
+        "c1"
+      ]
+    }
+  ],
+  "facts_used": [
+    "c1.team",
+    "c1.fid",
+    "c1.season",
+    "c1.cap_limit",
+    "c1.salaries",
+    "c1.adjustments",
+    "c1.ir_relief",
+    "c1.cap_used",
+    "c1.cap_room"
+  ],
+  "cites": [],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Show next season's cap position",
+    "List the cap adjustments behind this"
+  ],
+  "facts": {
+    "c1.team": {
+      "label": "Franchise",
+      "value": "Lakeside Lions",
+      "unit": "text",
+      "display": "Lakeside Lions",
+      "grade": "A",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.fid": {
+      "label": "Franchise id",
+      "value": "0008",
+      "unit": "id",
+      "display": "0008",
+      "grade": "A",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.season": {
+      "label": "Season",
+      "value": 2026,
+      "unit": "season",
+      "display": "2026",
+      "grade": "A",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.cap_limit": {
+      "label": "Salary cap",
+      "value": 500000,
+      "unit": "usd",
+      "display": "$500K",
+      "grade": "B",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.salaries": {
+      "label": "Roster salaries",
+      "value": 431000,
+      "unit": "usd",
+      "display": "$431K",
+      "grade": "A",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.adjustments": {
+      "label": "Cap adjustments (penalties)",
+      "value": 18000,
+      "unit": "usd",
+      "display": "$18K",
+      "grade": "A",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.ir_relief": {
+      "label": "Injured reserve relief",
+      "value": 6000,
+      "unit": "usd",
+      "display": "$6K",
+      "grade": "C",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.cap_used": {
+      "label": "Cap used",
+      "value": 443000,
+      "unit": "usd",
+      "display": "$443K",
+      "grade": "C",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    },
+    "c1.cap_room": {
+      "label": "Cap room",
+      "value": 57000,
+      "unit": "usd",
+      "display": "$57K",
+      "grade": "C",
+      "source": "MFL roster workbench and cap math",
+      "as_of": "2026-11-19",
+      "tool": "cap.position",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "cap.position",
+        "call_id": "c1",
+        "ms": 990,
+        "status": "ok"
+      },
+      {
+        "id": "roster.current",
+        "call_id": "c2",
+        "ms": 610,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0126
+  },
+  "request_id": "demo-cap_position"
+}

@@ -1,0 +1,233 @@
+{
+  "state": "partial",
+  "question": "Show cap adjustments for franchise 0006 from 2020 to 2026.",
+  "lead_md": "{{f.c1.team}} ({{f.c1.fid}}) shows {{f.c1.total}} in cap adjustments across {{f.c1.seasons}} seasons. The earliest seasons are only partly recorded.",
+  "blocks": [
+    {
+      "type": "chart",
+      "title": "Cap adjustments by season",
+      "columns": [
+        "Season",
+        "Adjustments",
+        "Ledger"
+      ],
+      "rows": [
+        [
+          "2020",
+          "{{f.c1.y2020}}",
+          "Partial"
+        ],
+        [
+          "2021",
+          "{{f.c1.y2021}}",
+          "Partial"
+        ],
+        [
+          "2022",
+          "{{f.c1.y2022}}",
+          "Complete"
+        ],
+        [
+          "2023",
+          "{{f.c1.y2023}}",
+          "Complete"
+        ],
+        [
+          "2024",
+          "{{f.c1.y2024}}",
+          "Complete"
+        ],
+        [
+          "2025",
+          "{{f.c1.y2025}}",
+          "Complete"
+        ],
+        [
+          "2026",
+          "{{f.c1.y2026}}",
+          "Complete"
+        ]
+      ],
+      "eras": [
+        {
+          "at": "2021",
+          "label": "37 games"
+        },
+        {
+          "at": "2022",
+          "label": "Superflex"
+        }
+      ],
+      "tool_call_ids": [
+        "c1"
+      ]
+    }
+  ],
+  "facts_used": [
+    "c1.team",
+    "c1.fid",
+    "c1.total",
+    "c1.seasons",
+    "c1.y2020",
+    "c1.y2021",
+    "c1.y2022",
+    "c1.y2023",
+    "c1.y2024",
+    "c1.y2025",
+    "c1.y2026"
+  ],
+  "cites": [],
+  "gaps": [
+    {
+      "what": "Adjustments for 2020 and 2021 are incomplete",
+      "why": "partial_coverage",
+      "source_needed": "Full salary-adjustment ledger for 2020 and 2021"
+    }
+  ],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Break down the 2024 adjustments"
+  ],
+  "facts": {
+    "c1.team": {
+      "label": "Franchise",
+      "value": "Ridge Runners",
+      "unit": "text",
+      "display": "Ridge Runners",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.fid": {
+      "label": "Franchise id",
+      "value": "0006",
+      "unit": "id",
+      "display": "0006",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.total": {
+      "label": "Total adjustments",
+      "value": 31000,
+      "unit": "usd",
+      "display": "$31K",
+      "grade": "C",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.seasons": {
+      "label": "Seasons covered",
+      "value": 7,
+      "unit": "count",
+      "display": "7",
+      "grade": "C",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.y2020": {
+      "label": "Adjustments 2020",
+      "value": 4000,
+      "unit": "usd",
+      "display": "$4K",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.y2021": {
+      "label": "Adjustments 2021",
+      "value": 0,
+      "unit": "usd",
+      "display": "$0",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.y2022": {
+      "label": "Adjustments 2022",
+      "value": 7000,
+      "unit": "usd",
+      "display": "$7K",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.y2023": {
+      "label": "Adjustments 2023",
+      "value": 3000,
+      "unit": "usd",
+      "display": "$3K",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.y2024": {
+      "label": "Adjustments 2024",
+      "value": 9000,
+      "unit": "usd",
+      "display": "$9K",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.y2025": {
+      "label": "Adjustments 2025",
+      "value": 5000,
+      "unit": "usd",
+      "display": "$5K",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    },
+    "c1.y2026": {
+      "label": "Adjustments 2026",
+      "value": 3000,
+      "unit": "usd",
+      "display": "$3K",
+      "grade": "A",
+      "source": "MFL salary adjustments ledger",
+      "as_of": "2026-11-19",
+      "tool": "cap.adjustments",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "cap.adjustments",
+        "call_id": "c1",
+        "ms": 1720,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0148
+  },
+  "request_id": "demo-partial"
+}

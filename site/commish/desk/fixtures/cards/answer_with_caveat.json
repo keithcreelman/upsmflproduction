@@ -1,0 +1,122 @@
+{
+  "state": "answer_with_caveat",
+  "question": "How many championships has franchise 0003 won?",
+  "lead_md": "{{f.c1.team}} ({{f.c1.fid}}) has won {{f.c1.titles}} championships. The most recent was in {{f.c1.last_title}}.",
+  "blocks": [
+    {
+      "type": "table",
+      "title": "Championship seasons",
+      "columns": [
+        "Season",
+        "Final finish"
+      ],
+      "rows": [
+        [
+          "{{f.c1.first_title}}",
+          "Champion"
+        ],
+        [
+          "{{f.c1.last_title}}",
+          "Champion"
+        ]
+      ],
+      "fact_ids": [
+        "c1.first_title",
+        "c1.last_title"
+      ],
+      "tool_call_ids": [
+        "c1"
+      ]
+    }
+  ],
+  "facts_used": [
+    "c1.team",
+    "c1.fid",
+    "c1.titles",
+    "c1.first_title",
+    "c1.last_title"
+  ],
+  "cites": [],
+  "gaps": [],
+  "conflicts": [],
+  "ruling_question": "",
+  "follow_ups": [
+    "Show every final finish for this franchise"
+  ],
+  "facts": {
+    "c1.team": {
+      "label": "Franchise",
+      "value": "Harbor Hawks",
+      "unit": "text",
+      "display": "Harbor Hawks",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.fid": {
+      "label": "Franchise id",
+      "value": "0003",
+      "unit": "id",
+      "display": "0003",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.titles": {
+      "label": "Championships",
+      "value": 2,
+      "unit": "count",
+      "display": "2",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.first_title": {
+      "label": "First title",
+      "value": 2014,
+      "unit": "season",
+      "display": "2014",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    },
+    "c1.last_title": {
+      "label": "Latest title",
+      "value": 2022,
+      "unit": "season",
+      "display": "2022",
+      "grade": "A",
+      "source": "MFL historical finishes",
+      "as_of": "2026-11-19",
+      "tool": "history.finishes",
+      "call_id": "c1"
+    }
+  },
+  "header": {
+    "ai_generated": true,
+    "as_of": "2026-11-19",
+    "canon_sha": "194f8df",
+    "phase": "P1"
+  },
+  "footer": {
+    "tools": [
+      {
+        "id": "history.finishes",
+        "call_id": "c1",
+        "ms": 910,
+        "status": "ok"
+      }
+    ],
+    "cost_usd": 0.0121
+  },
+  "request_id": "demo-answer_with_caveat",
+  "caveat": "Counts follow the franchise id, not the owner. Ownership changes are not in the record yet."
+}

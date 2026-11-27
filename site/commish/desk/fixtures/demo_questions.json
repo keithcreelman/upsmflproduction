@@ -1,0 +1,367 @@
+{
+  "fallback": "out_of_scope_preview",
+  "note": "Fixture questions mapped to fixture cards. Free text matches by keyword score; no live data.",
+  "cards": [
+    "abstain",
+    "answer",
+    "answer_with_caveat",
+    "answer_with_conflict",
+    "answer_with_gap",
+    "budget_exceeded",
+    "cap_penalty_quote",
+    "cap_position",
+    "cite_and_abstain",
+    "conflict_trade_deadline",
+    "coverage_pick_slot_decline",
+    "finish_toilet_bowl",
+    "ignore_injection",
+    "needs_ruling",
+    "not_ready",
+    "out_of_scope",
+    "out_of_scope_preview",
+    "partial",
+    "penalty_refused_incomplete",
+    "refuse_fairness",
+    "refuse_privacy",
+    "rule_citation",
+    "stale_data",
+    "tag_cut_refused",
+    "tool_failure"
+  ],
+  "questions": [
+    {
+      "id": "q01",
+      "question": "Trace the 2024 3rd-round pick of franchise 0003.",
+      "card": "answer_with_gap",
+      "keywords": [
+        "pick",
+        "trace",
+        "lineage",
+        "trades",
+        "chain"
+      ],
+      "suggested": true,
+      "seed_history": true
+    },
+    {
+      "id": "q02",
+      "question": "What cap penalty applies if franchise 0008 cuts Chris Olave today?",
+      "card": "cap_penalty_quote",
+      "keywords": [
+        "penalty",
+        "cut",
+        "drop",
+        "release",
+        "quote",
+        "dead money"
+      ],
+      "suggested": true,
+      "seed_history": true
+    },
+    {
+      "id": "q03",
+      "question": "What is franchise 0008's cap position?",
+      "card": "cap_position",
+      "keywords": [
+        "cap",
+        "position",
+        "space",
+        "used",
+        "limit"
+      ],
+      "suggested": true,
+      "seed_history": true
+    },
+    {
+      "id": "q04",
+      "question": "Who won the Toilet Bowl in 2019?",
+      "card": "finish_toilet_bowl",
+      "keywords": [
+        "toilet",
+        "bowl",
+        "hawk",
+        "tuah",
+        "seventh",
+        "finish"
+      ],
+      "suggested": true,
+      "seed_history": true
+    },
+    {
+      "id": "q05",
+      "question": "Can retired players be cut cap-free during the FA Auction?",
+      "card": "rule_citation",
+      "keywords": [
+        "retired",
+        "retirement",
+        "cap-free",
+        "rule",
+        "canon"
+      ],
+      "suggested": true,
+      "seed_history": true
+    },
+    {
+      "id": "q06",
+      "question": "When is the trade deadline this year?",
+      "card": "conflict_trade_deadline",
+      "keywords": [
+        "deadline",
+        "trade",
+        "calendar"
+      ],
+      "suggested": true,
+      "seed_history": true
+    },
+    {
+      "id": "q07",
+      "question": "What is Puka Nacua's current contract?",
+      "card": "answer",
+      "keywords": [
+        "contract",
+        "salary",
+        "player",
+        "nacua",
+        "years",
+        "status"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q08",
+      "question": "How many championships has franchise 0003 won?",
+      "card": "answer_with_caveat",
+      "keywords": [
+        "championships",
+        "titles",
+        "champion",
+        "won"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q09",
+      "question": "Show cap adjustments for franchise 0006 from 2020 to 2026.",
+      "card": "partial",
+      "keywords": [
+        "adjustments",
+        "ledger",
+        "penalties",
+        "trend",
+        "seasons"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q10",
+      "question": "Who finished 10th in 2015?",
+      "card": "answer_with_conflict",
+      "keywords": [
+        "2015",
+        "standings",
+        "tenth",
+        "finish",
+        "defective"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q11",
+      "question": "Was the taxi squad limit the same in 2019?",
+      "card": "cite_and_abstain",
+      "keywords": [
+        "2019",
+        "taxi",
+        "limit",
+        "then",
+        "before",
+        "rule history"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q12",
+      "question": "Can a trade offered before the deadline be accepted after it?",
+      "card": "needs_ruling",
+      "keywords": [
+        "offered",
+        "accepted",
+        "after",
+        "ruling",
+        "ambiguous"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q13",
+      "question": "What was franchise 0010's starting lineup in Week 5 of 2013?",
+      "card": "abstain",
+      "keywords": [
+        "lineup",
+        "starters",
+        "week",
+        "2013",
+        "starting"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q14",
+      "question": "What trade offers is franchise 0012 considering right now?",
+      "card": "refuse_privacy",
+      "keywords": [
+        "offers",
+        "private",
+        "considering",
+        "negotiating"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q15",
+      "question": "Tell me what franchise 0009 will bid on at the auction so I can outbid them.",
+      "card": "refuse_fairness",
+      "keywords": [
+        "bid",
+        "outbid",
+        "auction",
+        "plans",
+        "intel"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q16",
+      "question": "How many players fit on a taxi squad?",
+      "card": "ignore_injection",
+      "keywords": [
+        "taxi",
+        "squad",
+        "size",
+        "many",
+        "players"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q17",
+      "question": "Which players does franchise 0011 have on the taxi squad right now?",
+      "card": "tool_failure",
+      "keywords": [
+        "roster",
+        "taxi",
+        "right now",
+        "players"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q18",
+      "question": "Who is on injured reserve for franchise 0004?",
+      "card": "stale_data",
+      "keywords": [
+        "injured",
+        "reserve",
+        "ir",
+        "injury"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q19",
+      "question": "Compare the cap health of every franchise.",
+      "card": "budget_exceeded",
+      "keywords": [
+        "compare",
+        "every",
+        "all",
+        "franchises",
+        "health"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q20",
+      "question": "Post this ruling to the league Discord.",
+      "card": "out_of_scope",
+      "keywords": [
+        "post",
+        "discord",
+        "send",
+        "message",
+        "announce"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q21",
+      "question": "What penalty applies if franchise 0006 cuts Marquise Brown?",
+      "card": "penalty_refused_incomplete",
+      "keywords": [
+        "marquise",
+        "brown",
+        "penalty",
+        "cut"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q22",
+      "question": "What penalty applies if franchise 0005 cuts its tagged player now?",
+      "card": "tag_cut_refused",
+      "keywords": [
+        "tag",
+        "tagged",
+        "cut",
+        "penalty",
+        "auction"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q23",
+      "question": "Which player did franchise 0008 take with its 2020 2nd-round pick?",
+      "card": "coverage_pick_slot_decline",
+      "keywords": [
+        "drafted",
+        "took",
+        "selected",
+        "2020",
+        "slot",
+        "pick"
+      ],
+      "suggested": false,
+      "seed_history": false
+    },
+    {
+      "id": "q24",
+      "question": "What does the rule say about cutting a player after the auction starts?",
+      "card": "rule_citation",
+      "keywords": [
+        "rule",
+        "says",
+        "canon",
+        "cut",
+        "auction"
+      ],
+      "suggested": false,
+      "seed_history": false
+    }
+  ]
+}
