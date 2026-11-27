@@ -7,10 +7,10 @@
    limit, the accept gate and a 3-team trade's state are the worker's answers. This file only draws and builds; it has no network code. */
 (function (root, factory) {
   var req = typeof require === "function";
-  var api = factory(req ? require("./format.js") : root.UPS2027.format, req ? require("./adjust.js") : root.UPS2027.adjust);
+  var api = factory(req ? require("./format.js") : root.UPS2027.format, req ? require("./adjust.js") : root.UPS2027.adjust, req ? require("./tradeimpact.js") : root.UPS2027.tradeimpact);
   if (typeof module === "object" && module.exports) module.exports = api;
   else { root.UPS2027 = root.UPS2027 || {}; root.UPS2027.trades = api; }
-})(typeof self !== "undefined" ? self : this, function (F, A) {
+})(typeof self !== "undefined" ? self : this, function (F, A, IMP) {
   "use strict";
   var esc = F.esc;
   function pad4(x) { var s = String(x == null ? "" : x).trim(); return s ? ("0000" + s).slice(-4) : ""; }
@@ -112,7 +112,7 @@
       var now = capRoom(S, f), a = after[f], l = loaded[f], chips = "";
       if (a) chips += '<span class="chip ' + (int(a.over_by) > 0 ? "cr" : "ok") + '">' + (int(a.over_by) > 0 ? "Over " + k$(a.over_by) : k$(a.room_after)) + " after</span>";
       if (l) chips += '<span class="chip ' + (int(l.loaded_after) > int(lc.max || 5) ? "cr" : "ok") + '">' + esc(l.loaded_after) + "/" + esc(lc.max || 5) + " loaded</span>";
-      return '<div class="trr"><span class="trnm">' + esc(teamName(S, f)) + '</span><span class="trcs"><span class="mu">' + esc(now == null ? "—" : (now < 0 ? "Over " + k$(-now) : k$(now)) + " now") + "</span>" + chips + "</span></div>";
+      return '<div class="trr trcr"><span class="trnm">' + esc(teamName(S, f)) + '</span><span class="trcs"><span class="mu">' + esc(now == null ? "—" : (now < 0 ? "Over " + k$(-now) : k$(now)) + " now") + "</span>" + chips + "</span></div>";
     }).join("");
     if (c && c.cap && c.cap.status === "unavailable") h += '<div class="ex wn">After the trade: couldn’t be checked.</div>';
     return h + "</div>";
@@ -297,6 +297,22 @@
     return chips + (S.tr.mode === 3 && !S.tr.counter ? build3Body(S, me, G) : build2Body(S, me, G));
   }
 
+  // ---- lineup impact (lib/tradeimpact.js): the players moving, from the trade as listed; null until the projections are read ----
+  function pid(t) { var s = String(t || "").toUpperCase().replace(/^P_/, ""); return /^\d+$/.test(s) ? s : ""; }
+  function movesOf2(S, me, o) { var x = offerSides(S, o, me), out = []; x.get.forEach(function (t) { if (pid(t)) out.push({ pid: pid(t), from: x.other, to: me }); }); x.give.forEach(function (t) { if (pid(t)) out.push({ pid: pid(t), from: me, to: x.other }); }); return { fids: [me, x.other], moves: out }; }
+  function movesOf3(tr) {
+    var out = [];
+    (tr.movements || []).forEach(function (m) { (m.assets || []).forEach(function (a) { var p = a.kind === "player" ? pid(a.player_id || a.token || a.id) : ""; if (p) out.push({ pid: p, from: pad4(m.from && m.from.fid), to: pad4(m.to && m.to.fid) }); }); });
+    return { fids: (tr.participants || []).map(function (p) { return pad4(p.fid); }), moves: out };
+  }
+  function impactOf(S, mv) { var P = S.tr.pts; return P && P.state === "ok" && IMP ? IMP.compute(S, mv.fids, mv.moves, P) : null; }
+  function impactCard(S, me, mv) { if (!IMP) return ""; var P = S.tr.pts; if (P && P.state === "error") return '<div class="card"><h2>Lineup impact</h2><div class="ex wn">Projections couldn’t be read. <button class="link" data-act="trpts">Try again</button></div></div>'; return IMP.summary(S, impactOf(S, mv), me); }
+  function currentMoves(S, me) {
+    if (S.tr.impFrom === "review3") { var tr = S.tr.rv3 && S.tr.rv3.trade; return tr ? movesOf3(tr) : null; }
+    var o = S.tr.rv && S.tr.rv.offer; return o ? movesOf2(S, me, o) : null;
+  }
+  function impactBody(S, me) { var mv = currentMoves(S, me); if (!mv) return '<div class="ex pad">That trade is no longer listed.</div>'; return IMP.detail(S, impactOf(S, mv), me, S.tr.impTeam || me, function (f) { return f === me ? "You" : teamName(S, f); }); }
+
   // ---- reviews ----
   function review2Body(S, me, G) {
     var rv = S.tr.rv || {}, o = rv.offer, d = rv.data; if (!o) return '<div class="ex pad">That trade is no longer listed.</div>';
@@ -305,6 +321,7 @@
     h += '<div class="card"><h2>You get</h2>' + (x.get.map(function (t) { return detailRow(S, t); }).join("") || '<div class="ex">Nothing</div>') + "</div>";
     h += '<div class="card"><h2>You give</h2>' + (x.give.map(function (t) { return detailRow(S, t); }).join("") || '<div class="ex">Nothing</div>') + "</div>";
     if (o.message) h += '<div class="ex pad trmsg">“' + esc(String(o.message).slice(0, 600)) + "”</div>";
+    h += impactCard(S, me, movesOf2(S, me, o));
     h += capTable(S, [me, x.other], rv.state === "ok" && d ? d.c : null);
     if (rv.state === "loading") h += '<div class="ex pad">Checking the trade…</div>';
     else if (rv.state === "error") h += '<div class="ex wn pad">' + esc(rv.why || "Couldn’t check this trade.") + ' <button class="link" data-act="trretry">Try again</button></div>';
@@ -338,6 +355,7 @@
         return (m.assets || []).map(function (a) { return '<div class="trd"><span class="in">' + esc(threeAsset(S, a)) + '</span><span class="mu">from ' + esc(fr === me ? "you" : teamName(S, fr)) + "</span></div>"; }).join("");
       }).join("") + "</div>";
     });
+    h += impactCard(S, me, movesOf3(tr));
     h += capTable(S, fids, tr.compliance || null) + loadedWarn(S, tr.compliance);
     var mine = (tr.participants || []).filter(function (p) { return pad4(p.fid) === me; })[0];
     var answer = tr.status === "collecting" && mine && mine.slot !== "initiator" && mine.state === "pending";   // Keith 2026-11-26 "A": partners answer here
@@ -349,11 +367,12 @@
 
   function screen(S, H) {
     var me = S.me && S.me.signedIn ? S.me.fid : "", v = S.tr.view;
-    var back = v !== "list" ? '<div class="trback"><button class="link" data-act="trback">‹ Trades</button><span class="trbt">' + esc(v === "build" ? (S.tr.counter ? "Counter offer" : "Propose trade") : "Review") + "</span></div>" : "";
+    var back = v === "impact" ? '<div class="trback"><button class="link" data-act="trimpback">‹ Review</button><span class="trbt">Lineup impact</span></div>' :
+      v !== "list" ? '<div class="trback"><button class="link" data-act="trback">‹ Trades</button><span class="trbt">' + esc(v === "build" ? (S.tr.counter ? "Counter offer" : "Propose trade") : "Review") + "</span></div>" : "";
     var body;
     if (!S.model) body = '<div class="ex pad">Loading the league…</div>';
     else if (!me) body = '<div class="card warnc"><div class="ex">' + esc(S.me && S.me.state === "loading" ? "Checking your sign-in…" : "Sign in with your own team to trade.") + "</div></div>";
-    else { var G = gate(S); body = v === "build" ? buildBody(S, me, G) : v === "review" ? review2Body(S, me, G) : v === "review3" ? review3Body(S, me, G) : listBody(S, me, G); }
+    else { var G = gate(S); body = v === "impact" ? impactBody(S, me) : v === "build" ? buildBody(S, me, G) : v === "review" ? review2Body(S, me, G) : v === "review3" ? review3Body(S, me, G) : listBody(S, me, G); }
     return H.scroller(H.header("Trades", ""), back + body);
   }
 
@@ -433,5 +452,5 @@
 
   return { fresh: fresh, blankDraft: blankDraft, blankDraft3: blankDraft3, tokens: tokens, tokenLabel: tokenLabel, k$: k$, capRoom: capRoom, gate: gate, offerSides: offerSides,
     pickToken: pickToken, pickBlocked: pickBlocked, maxCapK: maxCapK, build: build, build3: build3, counterDraft: counterDraft, ring: ring, ringNext: ringNext, findSent: findSent,
-    canSend: canSend, screen: screen, layer: layer, why: why, review: review, threeAsset: threeAsset };
+    canSend: canSend, movesOf2: movesOf2, movesOf3: movesOf3, screen: screen, layer: layer, why: why, review: review, threeAsset: threeAsset };
 });

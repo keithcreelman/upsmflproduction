@@ -80,6 +80,8 @@ function boot() {
       if (b.action === "reject") { W.offers.incoming = W.offers.incoming.filter((x) => x.trade_id !== tid); return answer(200, { ok: true }); }
       if (b.action === "revoke") { W.offers.outgoing = W.offers.outgoing.filter((x) => x.trade_id !== tid); return answer(200, { ok: true }); }
     }
+    if (p === "/api/mfl-export" && u.searchParams.get("TYPE") === "projectedScores") return answer(200, { projectedScores: { week: u.searchParams.get("W"), playerScore: [{ id: team(THEM).players[0].id, score: "24.5" }, { id: team(ME).players[0].id, score: "3.0" }] } });
+    if (p === "/api/mfl-export" && u.searchParams.get("TYPE") === "playerScores") return answer(200, { playerScores: { week: u.searchParams.get("W"), playerScore: [{ id: team(THEM).players[0].id, score: u.searchParams.get("W") === "AVG" ? "12.25" : "122.5" }] } });
     if (p === "/api/mfl-export" && u.searchParams.get("TYPE") === "rosters") return answer(200, { rosters: { franchise: { id: ME, player: W.roster.map((id) => ({ id })) } } });
     if (p === "/roster-workbench") return answer(200, FX.roster_workbench);
     if (p === "/api/current-lineup-week") return answer(200, FX.current_lineup_week);
@@ -101,7 +103,7 @@ function boot() {
   ctx.matchMedia = () => ({ matches: false, addEventListener() {} });
   ctx.addEventListener = () => {};
   vm.runInContext(INJURY_PURE, ctx);
-  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/planner.js", "lib/coverage.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "lib/submit.js", "lib/trades.js", "app.js"]) {
+  for (const f of ["config.js", "lib/format.js", "lib/contract.js", "lib/reviewed_names.js", "lib/adjust.js", "lib/model.js", "lib/roster.js", "lib/planner.js", "lib/coverage.js", "lib/data.js", "lib/recorded.js", "lib/photo.js", "lib/sample.js", "lib/clubhist.js", "lib/ranks.js", "lib/complete.js", "lib/boxlog.js", "lib/statranks.js", "lib/tabviews.js", "lib/breakdown.js", "lib/views.js", "lib/submit.js", "lib/tradeimpact.js", "lib/trades.js", "app.js"]) {
     vm.runInContext(read(f), ctx, { filename: f });
     if (f === "config.js") Object.assign(ctx.UPS2027_CONFIG, { data: "live", leagueId: "25625", workerBase: "https://ups-test.keith-creelman.workers.dev" });
   }
@@ -247,6 +249,21 @@ test("Counter: from the Review, the builder starts from the offer; Send counter 
   t.deepEqual(c.body.counter_offer.payload.teams[1].selected_assets.map((x) => x.player_id).sort(), [team(THEM).players[0].id, team(THEM).players[1].id].sort());
   t.match(text(a.html()), /Counter sent Confirmed on MFL\./);
   await a.click({ "data-act": "resultok" }); t.match(text(a.html()), /You sent · 2/); t.doesNotMatch(text(a.html()), /To you/);
+});
+
+test("Lineup impact: opening a Review reads MFL's projections (this week to 17) and season points once; Details drills down; nothing is POSTed", async () => {
+  const a = boot(); await tick(60);
+  await a.click({ "data-act": "nav", "data-v": "league" }); await tick(30);
+  await a.click({ "data-act": "trreview", "data-v": "777" }); await tick(40);
+  const pj = a.calls.filter((c) => c.path === "/api/mfl-export" && new URL(c.url).searchParams.get("TYPE") === "projectedScores").map((c) => +new URL(c.url).searchParams.get("W"));
+  t.ok(pj.length >= 1 && pj[pj.length - 1] === 17, "weeks through 17: " + pj.join(","));
+  t.equal(a.calls.filter((c) => new URL(c.url).searchParams.get("TYPE") === "playerScores").length, 2, "YTD and AVG");
+  t.match(a.html(), /data-act="trimpact"/); t.match(text(a.html()), /Lineup impact .*You \+/);
+  await a.click({ "data-act": "trimpact", "data-v": ME }); t.match(text(a.html()), /Week by week/); t.match(text(a.html()), /122\.5/, "season points of the incoming player");
+  await a.click({ "data-act": "trimpback" }); t.match(a.html(), /data-act="traccept"/);
+  await a.click({ "data-act": "trback" }); await a.click({ "data-act": "trreview", "data-v": "777" }); await tick(20);
+  t.equal(a.calls.filter((c) => new URL(c.url).searchParams.get("TYPE") === "playerScores").length, 2, "read once per visit");
+  t.deepEqual(a.W.posts.map((p) => p.body && p.body.action), ["preview", "preview"], "only the accept reviews (read-only)");
 });
 
 await run("mobile2027_r13_trades_controller");

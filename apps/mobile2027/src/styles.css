@@ -529,3 +529,21 @@ button.btnrow{cursor:pointer}
 .trwith .trtm b{max-width:100%;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;font-size:13px}.trwith .trtm small{font-size:11.5px;color:var(--mu);font-weight:600}
 .trwith span.trtm{border:1.5px dashed var(--bd);border-radius:10px}
 .trr .trnm{flex:1}
+/* Trades: lineup impact (Keith 2026-11-26: top of class) */
+.up{color:var(--ok)}.dn{color:var(--cr)}.eq{color:var(--mu)}
+.trimp .impl{display:flex;align-items:baseline;gap:8px;min-height:30px;border-bottom:1px solid var(--bd);font-size:13.5px}.trimp .impl:last-of-type{border-bottom:0}
+.trimp .impl .trnm{flex:1}.impv{font-weight:800;font-variant-numeric:tabular-nums;font-size:15px}.impt{min-width:92px;text-align:right;font-size:12px;font-variant-numeric:tabular-nums}
+.imphero{display:flex;flex-direction:column;gap:4px;padding:14px 14px 12px}
+.impbig{font-size:40px;line-height:1;font-weight:800;letter-spacing:-.02em;font-variant-numeric:tabular-nums}.impbig small{font-size:15px;font-weight:700;letter-spacing:0;color:var(--mu)}
+.impsub{display:flex;flex-wrap:wrap;gap:4px 14px;font-size:13px;color:var(--mu);font-variant-numeric:tabular-nums}.impsub b{font-size:15px}
+.iwk{display:grid;grid-template-columns:44px 52px 52px minmax(0,1fr) 52px;align-items:center;gap:6px;min-height:34px;border-bottom:1px solid var(--bd);font-size:13px;font-variant-numeric:tabular-nums}
+.iwk:last-of-type{border-bottom:0}.iwk span:nth-child(2),.iwk span:nth-child(3),.iwk span:nth-child(5){text-align:right}.iwk span:nth-child(5){font-weight:800}.iwk small{color:var(--ac);font-size:10.5px;font-weight:700}
+.ihead{min-height:26px;font-size:11px;font-weight:700;letter-spacing:.05em;text-transform:uppercase;color:var(--mu)}
+.ibar{display:flex;height:12px;min-width:0}.ihalf{flex:1;display:flex;min-width:0}.ihalf.l{justify-content:flex-end;border-right:1.5px solid var(--bs)}
+.ifill{display:block;height:100%;border-radius:3px}.ifill.up{background:var(--ok)}.ifill.dn{background:var(--cr)}
+.ifill.w0{width:0}.ifill.w1{width:10%}.ifill.w2{width:20%}.ifill.w3{width:30%}.ifill.w4{width:40%}.ifill.w5{width:50%}.ifill.w6{width:60%}.ifill.w7{width:70%}.ifill.w8{width:80%}.ifill.w9{width:90%}.ifill.w10{width:100%}
+.itbl{display:flex;flex-direction:column}
+.irow{display:grid;grid-template-columns:minmax(0,1fr) 46px 40px 40px 46px;align-items:center;gap:6px;min-height:44px;border-bottom:1px solid var(--bd);font-size:12.5px;font-variant-numeric:tabular-nums}
+.irow:last-child{border-bottom:0}.irow span:not(.in){text-align:right}.irow .in{min-width:0;overflow-wrap:anywhere}.irow .in small{display:block;color:var(--mu);font-size:11px}
+.trcr{flex-wrap:wrap;padding:4px 0;border-bottom:1px solid var(--bd)}.trcr:last-of-type{border-bottom:0}.trcr .trnm{flex:1 1 100%;font-weight:600}.trcr .trcs{flex:1 1 100%;justify-content:flex-start;align-items:center;gap:6px}
+.irow.ihead span.in{text-align:left}

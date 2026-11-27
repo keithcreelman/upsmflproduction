@@ -183,6 +183,9 @@
   }
   function threeCreate(cfg, fid, body) { return threePost(cfg, fid, "/api/trades/3way", body); }
   function threeCancel(cfg, fid, id) { return threePost(cfg, fid, "/api/trades/3way/cancel", { id: String(id), acting_franchise_id: fid }); }
+  // Lineup impact reads (no sign-in): MFL's projections for one week, and this season's points (W "YTD") or points per game (W "AVG").
+  function weekProj(cfg, w) { return getJson(address(cfg, "/api/mfl-export", { TYPE: "projectedScores", YEAR: cfg.season, W: w, JSON: 1 })); }
+  function seasonScores(cfg, w) { return getJson(address(cfg, "/api/mfl-export", { TYPE: "playerScores", YEAR: cfg.season, W: w === "AVG" ? "AVG" : "YTD", JSON: 1 })); }
   function threeDetail(cfg, fid, id) { if (!token()) return Promise.resolve({ ok: false, status: 401, body: null }); return getJson(address(cfg, "/api/trades/3way", threeParams(cfg, fid, { id: String(id), _: Date.now() }))); }
   // A counter (the classic app's COUNTER): the worker declines offer `tradeId` on MFL and sends `body` (the builder's offer) back to the team that made it.
   function tradeCounter(cfg, fid, tradeId, body) {
@@ -197,5 +200,5 @@
   root.UPS2027 = root.UPS2027 || {};
   root.UPS2027.submit = { token: token, signOut: signOut, whoami: whoami, lineup: lineup, rosterMove: rosterMove, mflStarters: mflStarters,
     trades: { offers: tradeOffers, assets: tradeAssets, lock: tradeLock, rosterIds: rosterIds, check: tradeCheck, action: tradeAction, create: tradeCreate,
-      threeList: threeList, threeCreate: threeCreate, threeCancel: threeCancel, threeRecheck: threeRecheck, threeRespond: threeRespond, threeDetail: threeDetail, counter: tradeCounter } };
+      threeList: threeList, threeCreate: threeCreate, threeCancel: threeCancel, threeRecheck: threeRecheck, threeRespond: threeRespond, threeDetail: threeDetail, counter: tradeCounter, weekProj: weekProj, seasonScores: seasonScores } };
 })(window);

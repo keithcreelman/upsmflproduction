@@ -41,7 +41,7 @@ export const TEST_WORKER = "https://ups-test.keith-creelman.workers.dev";
 export const TEST_LEAGUE = "25625";
 export const TEST_OMIT = ["recorded_data.js"];
 // Files ONLY the Test target carries (never the Preview build; deploy_preview.mjs's allowlist stays FILES). R13 F3 (Keith 2026-11-26): the lineup submit.
-export const TEST_FILES = ["lib/submit.js", "lib/trades.js"];   // Trades v1 (Keith 2026-11-26): lib/trades.js draws the trade screens; it has no network code and gets the Preview scan
+export const TEST_FILES = ["lib/submit.js", "lib/tradeimpact.js", "lib/trades.js"];   // tradeimpact (Keith 2026-11-26): the trade Review's lineup impact, pure   // Trades v1 (Keith 2026-11-26): lib/trades.js draws the trade screens; it has no network code and gets the Preview scan
 export const SUBMIT_FILE = "lib/submit.js";
 export const TEST_EDITS = {
   "config.js": [
@@ -54,7 +54,7 @@ export const TEST_EDITS = {
     ["connect-src " + PROD_WORKER + ";", "connect-src " + TEST_WORKER + ";"],
     ['<script src="recorded_data.js"></script>\n', ""],
     ["<title>UPS 2027 Preview 0</title>", "<title>UPS TEST · UPS 2027</title>"],
-    ['<script src="app.js"></script>', '<script src="lib/submit.js"></script>\n<script src="lib/trades.js"></script>\n<script src="app.js"></script>'],
+    ['<script src="app.js"></script>', '<script src="lib/submit.js"></script>\n<script src="lib/tradeimpact.js"></script>\n<script src="lib/trades.js"></script>\n<script src="app.js"></script>'],
   ],
 };
 export function applyTestEdits(name, text) {

@@ -232,7 +232,7 @@ test("the Preview build: League stays a placeholder and carries no trade code; t
   t.ok(p.ok, JSON.stringify(p.problems)); t.ok(q.ok, JSON.stringify(q.problems));
   t.ok(!fs.existsSync(path.join(pv, "lib/trades.js")) && !fs.existsSync(path.join(pv, "lib/submit.js")), "no trade or write file in the Preview build");
   t.ok(fs.existsSync(path.join(tt, "lib/trades.js")));
-  t.match(fs.readFileSync(path.join(tt, "index.html"), "utf8"), /<script src="lib\/submit\.js"><\/script>\n<script src="lib\/trades\.js"><\/script>\n<script src="app\.js"><\/script>/);
+  t.match(fs.readFileSync(path.join(tt, "index.html"), "utf8"), /<script src="lib\/submit\.js"><\/script>\n<script src="lib\/tradeimpact\.js"><\/script>\n<script src="lib\/trades\.js"><\/script>\n<script src="app\.js"><\/script>/);
   t.deepEqual(B.scanWriteCode("lib/trades.js", TRADES, B.TEST_CSP), [], "the Preview scan: no network or write code");
   // a fetch slipped into trades.js stops the test build
   const src = tmp();

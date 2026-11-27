@@ -738,7 +738,7 @@
   function trReview(tid) {
     var me = trMe(), o = trOffer(tid); if (!me || !o) return;
     var keep = S.tr.rv && S.tr.rv.tid === tid ? S.tr.rv.ackMsg : "";
-    S.tr.rv = { tid: tid, offer: o, state: "loading", ackMsg: keep }; S.tr.view = "review"; S.sheet = null; render();
+    S.tr.rv = { tid: tid, offer: o, state: "loading", ackMsg: keep }; S.tr.view = "review"; S.sheet = null; render(); ensurePts(false);
     var x = U.trades.offerSides(S, o, me);
     // An offer to me: the worker's accept review (read-only). One I sent: the same cap / loaded-contract check, from its movements.
     var ask = x.inc ? TT().action(cfg, me, "preview", tid, "") : TT().check(cfg, me, trMovements(me, x)).then(function (r) {
@@ -750,9 +750,24 @@
     var mv = function (from, to, toks) { var cap = 0, at = []; toks.forEach(function (t) { var m = /^BB_(\d+(?:\.\d+)?)$/.exec(t); if (m) cap += Math.round(Number(m[1]) / 1000); else at.push(/^\d+$/.test(t) ? "P_" + t : t); }); return { from: from, to: to, asset_tokens: at, cap_k: cap }; };
     return [mv(me, x.other, x.give), mv(x.other, me, x.get)].filter(function (m) { return m.asset_tokens.length || m.cap_k > 0; });
   }
+  // Lineup impact: MFL's projections for the current week through Week 17, and this season's points, read once per visit (Keith 2026-11-26).
+  function ensurePts(force) {
+    if (!S.tr || !U.tradeimpact || !TT() || !TT().weekProj) return;
+    if (!force && S.tr.pts && S.tr.pts.state !== "error") return;
+    var W = U.tradeimpact.weeks(S); if (!W.length) return;
+    S.tr.pts = { state: "loading" };
+    var rows = function (r, key) { var o = {}, b = r && r.ok && r.body && r.body[key], a = b && b.playerScore; (a == null ? [] : Array.isArray(a) ? a : [a]).forEach(function (x) { if (x && x.id != null) o[String(x.id)] = x.score; }); return b ? o : null; };
+    Promise.all(W.map(function (w) { return TT().weekProj(cfg, w).then(function (r) { return rows(r, "projectedScores"); }, function () { return null; }); })
+      .concat([TT().seasonScores(cfg, "YTD").then(function (r) { return rows(r, "playerScores"); }, function () { return null; }), TT().seasonScores(cfg, "AVG").then(function (r) { return rows(r, "playerScores"); }, function () { return null; })]))
+      .then(function (res) {
+        var proj = {}, any = false; W.forEach(function (w, i) { if (res[i]) { proj[w] = res[i]; any = true; } });
+        S.tr.pts = any ? { state: "ok", proj: proj, ytd: res[W.length] || {}, avg: res[W.length + 1] || {} } : { state: "error" };
+        render(true);
+      });
+  }
   function tr3Review(id) {
     var me = trMe(), L = S.tr.three, t = L.state === "ok" ? (L.list || []).filter(function (x) { return String(x.id) === String(id); })[0] : null; if (!me || !t) return;
-    S.tr.rv3 = { id: id, trade: t }; S.tr.view = "review3"; S.sheet = null; render();
+    S.tr.rv3 = { id: id, trade: t }; S.tr.view = "review3"; S.sheet = null; render(); ensurePts(false);
     TT().threeDetail(cfg, me, id).then(function (r) { if (S.tr.rv3 && S.tr.rv3.id === id && r.ok && r.body && r.body.trade) { S.tr.rv3.trade = r.body.trade; render(true); } }, function () { /* the list's copy stays */ });
   }
   function trAckCap() {
@@ -786,7 +801,11 @@
   function trHandle(act, v, el) {
     var d = S.tr.d, d3 = S.tr.d3, me = trMe(), at = function (k) { return el && el.getAttribute ? el.getAttribute(k) : null; };
     var fidOk = function (f) { return /^\d{4}$/.test(f || ""); };
-    if (act === "trpropose") { S.tr.view = "build"; S.tr.counter = null; S.tr.chk = { state: "idle", sig: "" }; loadInv(me, false); render(); }
+    if (act === "trimpact") { if (S.tr.view === "review" || S.tr.view === "review3") { S.tr.impFrom = S.tr.view; S.tr.impTeam = v || me; S.tr.view = "impact"; render(); } }
+    else if (act === "trimpteam") { S.tr.impTeam = v; render(true); }
+    else if (act === "trimpback") { S.tr.view = S.tr.impFrom || "list"; render(); }
+    else if (act === "trpts") ensurePts(true);
+    else if (act === "trpropose") { S.tr.view = "build"; S.tr.counter = null; S.tr.chk = { state: "idle", sig: "" }; loadInv(me, false); render(); }
     else if (act === "trback") { if (S.tr.counter) { S.tr.counter = null; S.tr.d = U.trades.blankDraft(); S.tr.chk = { state: "idle", sig: "" }; } S.tr.view = "list"; S.sheet = null; S.tr.rv = null; S.tr.rv3 = null; render(); }
     else if (act === "tr3review") tr3Review(v);
     else if (act === "trcounter") {
