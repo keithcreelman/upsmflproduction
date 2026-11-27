@@ -63,8 +63,12 @@ WW_CONTRACT_ANNOTATE_ENABLED = "0"
 WW_CONTRACT_STAMP_ENABLED = "0"
 IR_NATIVE_ANNOUNCE_ENABLED = "0"
 TRADE_DM_ENABLED = "0"
-TRADE_3WAY_ENABLED = "0"
+# Keith 2026-11-26 ("A"): 3-team trades ON for the test league, with partners answering in the app (the route below; Discord is off here).
+# EXECUTE stays "0" (dry-run: when all three accept, the trade is recorded and no roster moves): live legs use the production commissioner
+# cookie (MFL_COOKIE, forbidden here) and outlast the guard's 20s background window. Running them live is a separate decision.
+TRADE_3WAY_ENABLED = "1"
 TRADE_3WAY_EXECUTE = "0"
+TRADE_3WAY_APP_RESPOND = "1"
 AUCTION_INAPP_BID_ENABLED = "0"
 AUCTION_ERA_ENABLED = "0"
 AUCTION_FAA_ENABLED = "0"

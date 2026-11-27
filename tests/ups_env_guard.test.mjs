@@ -339,7 +339,10 @@ test("wrangler.test.toml: no jobs, no service/R2 bindings, both D1 names on the 
   t.equal([...code.matchAll(/database_name = "ups-test-db"/g)].length, 2, "UPS_MFL_DB and TWB_OUTBOX_DB both on ups-test-db");
   t.match(code, /binding = "UPS_MFL_DB"/); t.match(code, /binding = "TWB_OUTBOX_DB"/);
   for (const name of G.FORBIDDEN_TEST_SECRETS) t.doesNotMatch(code, new RegExp(`^${name}\\s*=`, "m"), `${name} not set as a var`);
-  for (const flag of [...code.matchAll(/^([A-Z0-9_]+_ENABLED|[A-Z0-9_]+_EXECUTE|[A-Z0-9_]+_AUTO_POST|[A-Z0-9_]+_POST_MFL|OTB_LIVE_MODE|RULE_PROPOSALS_LIVE) = "(.*)"$/gm)]) t.equal(flag[2], "0", `${flag[1]} off`);
+  // The ONE exception, by name (Keith 2026-11-26, "A" on #1537): 3-team trades on for the test league. Execution stays off (dry-run).
+  const ON_BY_RULING = { TRADE_3WAY_ENABLED: "1" };
+  for (const flag of [...code.matchAll(/^([A-Z0-9_]+_ENABLED|[A-Z0-9_]+_EXECUTE|[A-Z0-9_]+_AUTO_POST|[A-Z0-9_]+_POST_MFL|OTB_LIVE_MODE|RULE_PROPOSALS_LIVE) = "(.*)"$/gm)]) t.equal(flag[2], ON_BY_RULING[flag[1]] || "0", `${flag[1]} ${ON_BY_RULING[flag[1]] ? "on by ruling" : "off"}`);
+  t.match(code, /^TRADE_3WAY_EXECUTE = "0"$/m, "3-team execution stays a dry-run");
 });
 
 // ─────────────────────────────────────────────────────────────────────────────────────────────

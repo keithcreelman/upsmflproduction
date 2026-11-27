@@ -6,6 +6,9 @@
 //   POST /api/trades/3way/cancel                          { id }  cancel (initiator only — see trade_3way_model.decideCancel)
 //   POST /api/trades/3way/recheck                         { id }  re-check a trade that both partners accepted but the salary cap is holding
 //   POST /api/trades/3way/ack-cap                          { id }  acknowledge the CALLER's own currently-projected cap overage on this trade (never writes to MFL, never itself re-checks)
+//   POST /api/trades/3way/respond                         { id, action: accept|decline }  a PARTNER's own answer, from the app. TEST DEPLOYMENT ONLY:
+//                                                          answered only where env TRADE_3WAY_APP_RESPOND is "1" (worker/wrangler.test.toml);
+//                                                          everywhere else partners answer with the Discord buttons. Same rules (trade_3way.respond3Way).
 //   POST /api/trades/3way/select-drops                      { id, player_ids:[...] }  select (and confirm) the CALLER's own conditional loaded-contract drops on this trade (never writes to MFL, never drops a player, never itself re-checks)
 //
 // Identity comes from trade_authz.js (the SAME caller model the two-team routes use): a proven
@@ -14,7 +17,7 @@
 // worker's configured league) and MUST agree with any league_id in the body; every trade is
 // scoped to that (league, season).
 
-import { create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance } from "./trade_3way.js";
+import { respond3Way, create3WayTrade, get3WayTrade, list3WayForFranchise, cancel3WayTrade, recheck3WayExecution, ack3WayCapOverage, select3WayLoadedContractDrops, movementsForCompliance } from "./trade_3way.js";
 import { padFid } from "./trade_3way_model.js";
 import { checkForfeitedPicks, movementsToTokens } from "./lineup_forfeits.js";
 import { resolveTradeCaller, callerFailureBody } from "./trade_authz.js";
@@ -49,7 +52,7 @@ export function legacyAliases(trade) {
 }
 
 // The route family this module owns — exact matches only (the global L-guard exempts exactly these).
-export const THREE_WAY_ROUTES = ["/api/trades/3way", "/api/trades/3way/cancel", "/api/trades/3way/recheck", "/api/trades/3way/ack-cap", "/api/trades/3way/select-drops"];
+export const THREE_WAY_ROUTES = ["/api/trades/3way", "/api/trades/3way/respond", "/api/trades/3way/cancel", "/api/trades/3way/recheck", "/api/trades/3way/ack-cap", "/api/trades/3way/select-drops"];
 
 export async function handle3WayHttp(a) {
   const { request, url, path, env, ctx, deps, corsHeaders } = a;
@@ -58,9 +61,11 @@ export async function handle3WayHttp(a) {
   const isRecheck = path === "/api/trades/3way/recheck";
   const isAckCap = path === "/api/trades/3way/ack-cap";
   const isSelectDrops = path === "/api/trades/3way/select-drops";
-  if (!isBase && !isCancel && !isRecheck && !isAckCap && !isSelectDrops) return null;
+  // Keith 2026-11-26 ("A"): partners answer in the app on the test deployment, where Discord is off. Nowhere else (the flag is in wrangler.test.toml only).
+  const isRespond = path === "/api/trades/3way/respond" && String((env && env.TRADE_3WAY_APP_RESPOND) || "") === "1";
+  if (!isBase && !isCancel && !isRecheck && !isAckCap && !isSelectDrops && !isRespond) return null;
   const method = request.method;
-  if (!((isBase && (method === "GET" || method === "POST")) || ((isCancel || isRecheck || isAckCap || isSelectDrops) && method === "POST"))) return null;
+  if (!((isBase && (method === "GET" || method === "POST")) || ((isCancel || isRecheck || isAckCap || isSelectDrops || isRespond) && method === "POST"))) return null;
 
   const out = (status, payload) => new Response(JSON.stringify(payload), {
     status, headers: { "content-type": "application/json", ...(corsHeaders || {}) },
@@ -105,6 +110,21 @@ export async function handle3WayHttp(a) {
     if (!l.ok) return fail(l.http, l.code, l.message);
     const trades = l.trades.map(legacyAliases);
     return out(200, { ok: true, three_way: trades, trades });
+  }
+
+  // ── POST respond (test deployment only, see isRespond) ─────────────────────
+  // The caller's OWN team only: a proven owner session for that franchise (never the admin key, never the commissioner acting as someone).
+  if (isRespond) {
+    const action = safeStr(body.action).toLowerCase();
+    if (action !== "accept" && action !== "decline") return fail(400, "bad_request", "Say accept or decline.");
+    if (viewer.via !== "session" || padFid(viewer.sessionFid) !== padFid(viewer.fid)) return fail(403, "forbidden", "Only the team's own owner can answer this trade.");
+    const me = padFid(viewer.fid);
+    const x = await respond3Way(env, ctx, safeStr(body.id), action, (row) => {
+      const here = safeStr(row.league_id) === safeStr(leagueId) && safeStr(row.season) === safeStr(season);
+      return { isB: here && padFid(row.team_b_fid) === me, isC: here && padFid(row.team_c_fid) === me };
+    });
+    const http = x.ok ? 200 : x.code === "not_found" ? 404 : x.code === "not_partner" ? 403 : x.code === "unavailable" ? 503 : x.code === "bad_action" ? 400 : 409;
+    return x.ok ? out(200, { ok: true, code: x.code, message: x.message, id: safeStr(body.id) }) : fail(http, x.code, x.message);
   }
 
   // ── POST recheck ───────────────────────────────────────────────────────────
