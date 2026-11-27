@@ -321,6 +321,7 @@ test("Keith 2026-11-27: a player's name opens his profile; cap money can be type
   t.doesNotMatch(a.html(), /aria-label="Player profile: /); t.match(text(a.html()), /Accept/, "back on the Review");
 
   await a.click({ "data-act": "trcounter", "data-v": "777" }); await tick(20);
+  t.match(a.html(), new RegExp('<div class="trsel"><span class="in"><button class="plk" data-act="card" data-pid="' + pidThem + '" data-x="1">'), "in the builder too");
   t.match(a.html(), /<textarea id="trnote" class="pfq trn" maxlength="2000" rows="2" placeholder="Note to [^"]+ \(optional\)">/, "the counter's note box is open");
   await a.type("trnote", "Add a pick and it's done");
   await a.typeCap({ "data-cap": "trcapt", "data-fid": "", "data-to": "" }, "999", true);

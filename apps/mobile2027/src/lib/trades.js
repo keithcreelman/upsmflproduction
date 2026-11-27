@@ -244,8 +244,7 @@
     if (inv.state === "loading" || inv.state === "idle") return '<div class="ex">Loading…</div>';
     if (inv.state === "error") return '<div class="ex wn">' + esc(inv.why || "Couldn’t read this team.") + ' <button class="link" data-act="trinv">Try again</button></div>';
     return toks.map(function (t) {
-      var pp = /^P_\d+$/.test(t) && S.model ? S.model.byId[t.slice(2)] : null, txt = esc(assetText(S, inv, t));
-      if (pp && txt.indexOf(esc(pp.name)) === 0) txt = plink(pp.id, pp.name) + txt.slice(esc(pp.name).length);
+      var ip = playerOf(inv, t), txt = ip ? plink(ip.player_id, (S.model && S.model.byId[String(ip.player_id)] || {}).name || ip.display) + " " + esc(ip.position + " " + k$(ip.salary) + (ip.taxi ? " · Taxi" : "")) : esc(assetText(S, inv, t));
       return '<div class="trsel"><span class="in">' + txt + "</span>" + (extra ? extra(t) : "") + '<button class="btn sm" data-act="trrm" data-v="' + esc(t) + '" data-fid="' + esc(fid) + '" aria-label="Remove">✕</button></div>';
     }).join("");
   }
